@@ -1,7 +1,7 @@
 # StartupFundingAgent - Production-Grade MCP
 ### *From Zero to Funding Pitch in 60 Seconds*
 
-**StartupFundingAgent** is an enterprise-ready Model Context Protocol (MCP) server designed to autonomously hunt for non-dilutive funding, generate winning pitches using advanced AI frameworks, and seamlessly integrate with Google Workspace for execution.
+**StartupFundingAgent** (also known as **Grant Hunter MCP**) is an enterprise-ready Model Context Protocol (MCP) server designed to autonomously hunt for non-dilutive funding, generate winning pitches using advanced AI frameworks, and seamlessly integrate with Google Workspace for execution.
 
 ---
 
@@ -284,8 +284,12 @@ This server follows the Model Context Protocol specification. Use the `mcp_defin
 
 ### Running Tests
 
+> [!WARNING]
+> The `tests` directory is currently pending implementation. Please refer to `TODO.md` for the roadmap on adding unit and integration tests.
+
 ```bash
-pytest tests/ -v
+# Future command
+# pytest tests/ -v
 ```
 
 ### Linting
