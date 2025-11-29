@@ -1,0 +1,190 @@
+openapi: 3.1.0
+info:
+  title: Grant Hunter MCP
+  description: >
+    Agentic interface for Grant Hunter, providing grant search,
+    pitch generation, and Google Services integration.
+  version: 1.0.0
+servers:
+  # Update this URL to your deployment endpoint
+  - url: ${MCP_SERVER_URL:-http://localhost:8000}
+    description: MCP Server URL (configure via MCP_SERVER_URL environment variable)
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+  /query_grants:
+    post:
+      summary: Query Grants.gov for opportunities
+      operationId: queryGrants
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GrantsQueryInput'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GrantsQueryOutput'
+  /generate_pitch:
+    post:
+      summary: Generate a funding pitch
+      operationId: generatePitch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PitchGenerateInput'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PitchGenerateOutput'
+  /manage_google_services:
+    post:
+      summary: Manage Google Services (Gmail Drafts, Calendar Events)
+      operationId: manageGoogleServices
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleServicesInput'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+components:
+  schemas:
+    GrantsQueryInput:
+      type: object
+      properties:
+        keyword:
+          type: string
+          maxLength: 150
+          description: Primary search term for grants.
+        max_results:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+          description: Maximum number of grant opportunities to return.
+        focus_area:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: Optional secondary filter.
+      required:
+        - keyword
+
+    GrantOpportunity:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        agency:
+          type: string
+        close_date:
+          type: string
+        status:
+          type: string
+        data_status:
+          type: string
+          description: Indicates if data is complete or INCOMPLETE_SYNOPSIS_ONLY.
+      required:
+        - id
+        - title
+        - agency
+        - close_date
+        - status
+        - data_status
+
+    GrantsQueryOutput:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/GrantOpportunity'
+        total_count:
+          type: integer
+        execution_time_ms:
+          type: number
+      required:
+        - results
+        - total_count
+        - execution_time_ms
+
+    PitchGenerateInput:
+      type: object
+      properties:
+        startup_name:
+          type: string
+          maxLength: 100
+        focus_area:
+          type: string
+          maxLength: 100
+        grant_title:
+          type: string
+          maxLength: 200
+      required:
+        - startup_name
+        - focus_area
+        - grant_title
+
+    PitchGenerateOutput:
+      type: object
+      properties:
+        pitch_draft:
+          type: string
+        model_used:
+          type: string
+        status:
+          type: string
+      required:
+        - pitch_draft
+        - model_used
+        - status
+
+    GoogleServicesInput:
+      type: object
+      properties:
+        grant_title:
+          type: string
+          maxLength: 200
+        deadline_date:
+          type: string
+          description: Date string for the grant deadline.
+        oauth_token:
+          type: string
+          description: OAuth access token for Google Services.
+      required:
+        - grant_title
+        - deadline_date
+        - oauth_token
