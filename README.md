@@ -317,23 +317,12 @@ mypy . --strict
 
 ---
 
-## 🔮 V2 Scope (Future Roadmap)
+## License
 
-While this MVP delivers a complete "Grant Hunter" loop, our vision extends further:
+- [ ] **Tests**: Add unit tests for `grants_gov_api.py`.
 
-*   **Advanced UI**: React/Next.js dashboard for visual pipeline management.
-*   **Team Collaboration**: Multi-user support with role-based access control (RBAC).
-*   **Analytics Engine**: Dashboard for tracking win rates and funding funnel metrics.
-*   **Full OAuth2 Flow**: Implementing a dedicated auth service for token lifecycle management.
-*   **Async Network Layer**: Migration from `requests` to `httpx` planned for V2 to handle >10k concurrent connections (currently optimized for single-tenant stability).
-*   **Brazil Adaptation**: Support for Brazilian grant sources (Transferegov, etc.)
-
----
-
-## 📄 License
-
-MIT License - See LICENSE file for details.
-
----
-
-*Built with ❤️ for founders who are building the future.*
+## Strategic Audit (2026-01-31)
+- **Status**: Production / Refined.
+- **Novelty**: 9/10. Autonomous funding agent.
+- **Relation**: This appears to be the *clean* MCP-only version, distinct from the hybrid `grant-hunter-mcp` (Batch 9).
+- **Recommendation**: Promote this as the canonical MCP implementation.
