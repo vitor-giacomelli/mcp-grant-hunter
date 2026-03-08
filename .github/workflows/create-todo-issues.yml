@@ -1,0 +1,43 @@
+name: Create Missing TODO Issues
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run — print what would be created without actually creating issues'
+        required: false
+        default: 'false'
+        type: boolean
+  push:
+    branches:
+      - main
+    paths:
+      - 'TODO.md'
+      - 'scripts/create_todo_issues.py'
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  create-todo-issues:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Create missing TODO issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            python scripts/create_todo_issues.py --dry-run
+          else
+            python scripts/create_todo_issues.py
+          fi
