@@ -1,49 +1,124 @@
-# Project Roadmap & Technical Debt
+﻿# Project Roadmap and Technical Debt
 
-This document tracks the known technical debt, planned improvements, and future roadmap for the **StartupFundingAgent** (Grant Hunter MCP).
+This document tracks known technical debt, planned improvements, and roadmap items for Grant Hunter MCP.
 
-Each item links to the corresponding GitHub Issue where one exists. Items marked **(new issue — pending workflow)** will be created automatically when the [`create-todo-issues`](.github/workflows/create-todo-issues.yml) workflow is triggered on `main`.
+Items marked `(new issue - pending workflow)` are created by:
+
+- Workflow: `.github/workflows/create-todo-issues.yml`
+- Script: `scripts/create_todo_issues.py`
+
+## Issue Creation Status (2026-03-27)
+
+- Attempted issue creation via `python scripts/create_todo_issues.py`.
+- Result: architecture bundle issues are still pending due GitHub token/permission and missing-label blockers in current CLI session.
+- Confirmed blockers:
+  - `GraphQL: Resource not accessible by personal access token (createIssue)`
+  - Missing labels in target repo (`area/architecture`, `area/api-contract`, `area/security`, `priority/P1`, etc.)
+- Next retry command (without replacing permanent env vars):
+  - Temporarily map alternate token for this shell run, then execute `python scripts/create_todo_issues.py`.
+
+## Architecture Review Backlog (2026-03-26)
+
+Source: [ARCHITECTURE_REVIEW.md](ARCHITECTURE_REVIEW.md)
+
+### P0
+
+- [ ] **Async network boundary refactor and non-blocking external calls** *(new issue - pending workflow)*
+  - [ ] Replace blocking grants lookup path with async-compatible HTTP execution.
+  - [ ] Isolate/offload blocking Google API operations from hot async request path.
+  - [ ] Add verification that async request path contains no blocking external calls.
+  - Acceptance criteria: measurable concurrency improvement and no blocking I/O in endpoint hot path.
+
+- [ ] **Standardize error taxonomy and typed error envelope across endpoints** *(new issue - pending workflow)*
+  - [ ] Define one error response schema (`code`, `message`, optional `details`).
+  - [ ] Use explicit error mapping instead of broad catch-all fallback behavior.
+  - [ ] Document error contract in API docs.
+  - Acceptance criteria: all endpoints return consistent machine-readable error responses.
+
+### P1
+
+- [ ] **Query grants contract cleanup (`focus_area`, fallback transparency)** *(new issue - pending workflow)*
+  - [ ] Decide if `focus_area` is implemented filtering or remove it from input schema.
+  - [ ] Add optional response metadata (`fallback_used`, `data_source`).
+  - [ ] Ensure fallback semantics are explicit to clients.
+  - Acceptance criteria: schema and behavior are aligned and documented.
+
+- [ ] **Add typed response contract for `/manage_google_services`** *(new issue - pending workflow)*
+  - [ ] Introduce strict response model for success/partial failure/failure outcomes.
+  - [ ] Remove shape-varying ad-hoc response payloads.
+  - Acceptance criteria: endpoint response shape is contract-stable and testable.
+
+- [ ] **Harden OAuth lifecycle handling and deadline date validation** *(new issue - pending workflow)*
+  - [ ] Define token refresh/token lifecycle approach and constraints.
+  - [ ] Reject invalid date formats with explicit validation errors.
+  - Acceptance criteria: no silent fallback-to-today behavior on invalid input.
+
+- [ ] **Align README and TECHNICAL with implemented behavior** *(new issue - pending workflow)*
+  - [ ] Keep "Verified Capabilities" and "Current Limitations" sections current.
+  - [ ] Remove unsupported or outdated implementation claims.
+  - Acceptance criteria: docs reflect current code behavior without over-claiming.
+
+- [ ] **Normalize documentation encoding and remove stale sections** *(new issue - pending workflow)*
+  - [ ] Eliminate mojibake and stale trailing content in top-level docs.
+  - Acceptance criteria: top-level docs are clean, readable, and internally consistent.
+
+### P2
+
+- [ ] **Observability baseline (structured logs, request IDs, external call metrics)** *(new issue - pending workflow)*
+  - [ ] Add request correlation IDs and structured logging fields.
+  - [ ] Add external dependency timing/failure telemetry.
+  - Acceptance criteria: per-request traceability and upstream failure visibility.
+
+- [ ] **TODO-to-issue synchronization guardrails** *(new issue - pending workflow)*
+  - [ ] Add validation check ensuring architecture TODO items are represented in issue automation script.
+  - [ ] Add naming convention to maintain traceability between TODO and issues.
+  - Acceptance criteria: TODO/issue drift is automatically detectable.
 
 ---
 
-## 🚨 High Priority (Technical Debt)
+## High Priority (Existing Technical Debt)
 
-### 1. Testing Infrastructure (CRITICAL)
-- [ ] **Create `tests/` directory**: The project currently lacks a dedicated test suite.
-- [ ] **Unit Tests** *(new issue — pending workflow)*:
-    - [ ] `tests/test_grants_api.py`: Test `search_grants` with mocked responses.
-    - [ ] `tests/test_pitch_generator.py`: Test prompt construction and fallback logic.
-    - [ ] `tests/test_pydantic_models.py`: Verify validation rules.
-- [ ] **Integration Tests** → [Issue #3: Add MCP endpoint contract and resiliency tests](https://github.com/vitor-giacomelli/mcp-grant-hunter/issues/3):
-    - [ ] `tests/test_main.py`: Test FastAPI endpoints using `TestClient`.
+### 1. Testing Infrastructure (Critical)
+
+- [ ] **Create `tests/` directory**: project currently lacks a dedicated test suite.
+- [ ] **Unit tests** *(new issue - pending workflow)*:
+  - [ ] `tests/test_grants_api.py`: test `search_grants` with mocked responses.
+  - [ ] `tests/test_pitch_generator.py`: test prompt construction and fallback logic.
+  - [ ] `tests/test_pydantic_models.py`: verify validation rules.
+- [ ] **Integration tests** -> [Issue #3: Add MCP endpoint contract and resiliency tests](https://github.com/vitor-giacomelli/mcp-grant-hunter/issues/3):
+  - [ ] `tests/test_main.py`: test FastAPI endpoints using `TestClient`.
 
 ### 2. Code Refactoring
-- [ ] **Refactor `grants_gov_api.py`** *(new issue — pending workflow)*:
-    - [ ] The `search_grants` method is doing too much (searching, deduplicating, sorting, formatting). Break this down into smaller, testable private methods.
-    - [ ] Move `MOCK_GRANTS` constant to a separate `mock_data.py` file to declutter the API logic.
-- [ ] **Refactor `pitch_generator.py`** *(new issue — pending workflow)*:
-    - [ ] Extract the prompt template into a separate text file or constant for easier editing.
+
+- [ ] **Refactor `grants_gov_api.py`** *(new issue - pending workflow)*:
+  - [ ] Break `search_grants` into smaller private methods.
+  - [ ] Move `MOCK_GRANTS` to `mock_data.py`.
+- [ ] **Refactor `pitch_generator.py`** *(new issue - pending workflow)*:
+  - [ ] Extract prompt template to a separate constant or file.
 
 ---
 
-## 🚀 Future Implementations (V2 Roadmap)
+## Future Implementations (V2 Roadmap)
 
-### 1. Architecture & Performance
-- [ ] **Async Network Layer** *(new issue — pending workflow)*: Migrate from `requests` (synchronous) to `httpx` (asynchronous) in `grants_gov_api.py`. This is crucial for handling high concurrency in a production environment.
-- [ ] **Caching** *(new issue — pending workflow)*: Implement Redis or in-memory caching for grant search results to reduce API calls and improve latency.
+### 1. Architecture and Performance
+
+- [ ] **Async network layer** *(new issue - pending workflow)*: migrate from `requests` to `httpx` in grants path.
+- [ ] **Caching** *(new issue - pending workflow)*: add in-memory or Redis caching for grant search results.
 
 ### 2. Features
-- [ ] **Full OAuth2 Flow** *(new issue — pending workflow)*: Implement a dedicated authentication service to handle the full OAuth2 lifecycle (token exchange, refresh tokens) instead of relying on manual token passing.
-- [ ] **Brazil Expansion** *(new issue — pending workflow)*: Add support for Brazilian grant sources (Transferegov, Sebrae, FAPESP) as per the "Brazil Grant Hunter" initiative.
-- [ ] **User Interface** *(new issue — pending workflow)*: Build a React/Next.js dashboard to visualize the grant pipeline and allow for easier interaction than the raw MCP interface.
+
+- [ ] **Full OAuth2 flow** *(new issue - pending workflow)*: dedicated auth/token lifecycle service.
+- [ ] **Brazil expansion** *(new issue - pending workflow)*: support Transferegov, Sebrae, FAPESP.
+- [ ] **User interface** *(new issue - pending workflow)*: React/Next.js dashboard.
 
 ### 3. DevOps
-- [ ] **CI/CD Pipeline** *(new issue — pending workflow)*: Set up GitHub Actions for automated testing and Docker image building.
-- [ ] **Helm Charts** *(new issue — pending workflow)*: Create Helm charts for Kubernetes deployment.
+
+- [ ] **CI/CD pipeline** *(new issue - pending workflow)*: automated tests and image pipeline.
+- [ ] **Helm charts** *(new issue - pending workflow)*: Kubernetes deployment templates.
 
 ---
 
-## 💡 Suggestions / Nice-to-Have
+## Suggestions / Nice-to-Have
 
-- [ ] **Grant Matching Engine** *(new issue — pending workflow)*: Implement a more sophisticated matching algorithm (using vector embeddings) to match startups with grants based on semantic similarity, rather than just keywords.
-- [ ] **Multi-Language Support** *(new issue — pending workflow)*: Localize the pitch generation to support other languages (Spanish, Portuguese, French).
+- [ ] **Grant matching engine** *(new issue - pending workflow)*: semantic retrieval with embeddings.
+- [ ] **Multi-language support** *(new issue - pending workflow)*: localized pitch generation output.

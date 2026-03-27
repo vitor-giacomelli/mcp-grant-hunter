@@ -142,8 +142,10 @@ class GoogleServicesManager:
                     "%Y-%m-%d"
                 )
             except ValueError:
-                # Fallback to today if parse fails
-                deadline_dt = datetime.now()
+                raise ValueError(
+                    "Invalid deadline_date format. Use '%B %d, %Y' "
+                    "or '%Y-%m-%d'."
+                )
 
         event = {
             'summary': f'Grant Deadline: {input_data.grant_title}',

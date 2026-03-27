@@ -1,6 +1,7 @@
-import requests
+import asyncio
 import logging
 import time
+import httpx
 from datetime import datetime
 from typing import List, Dict
 
@@ -50,22 +51,21 @@ class GrantsGovAPI:
     ]
 
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update({
+        self.headers = {
             'User-Agent': 'GrantHunterMCP/1.0',
             'Accept': 'application/json',
             'Content-Type': 'application/json'
-        })
+        }
         self.timeout = 10  # 10 seconds timeout
         self.max_retries = 5  # 5 attempts (Production AgentOps Standard)
 
-    def search_grants(self, keyword: str, limit: int = 20) -> List[Dict]:
+    async def search_grants(self, keyword: str, limit: int = 20) -> List[Dict]:
         """Search for grants using Grants.gov API"""
         try:
             logger.info(f"Starting Grants.gov API search for keyword: {keyword}")
 
             # Search by keyword
-            grants = self._search_by_keyword(keyword, limit=limit)
+            grants = await self._search_by_keyword(keyword, limit=limit)
 
             # Deduplication
             seen_numbers = set()
@@ -105,89 +105,95 @@ class GrantsGovAPI:
             logger.info("Using mock fallback due to API error")
             return self.MOCK_GRANTS[:limit]
 
-    def _search_by_keyword(self, keyword: str, limit: int = 20) -> List[Dict]:
+    async def _search_by_keyword(
+        self,
+        keyword: str,
+        limit: int = 20
+    ) -> List[Dict]:
         """Search grants by specific keyword with retry logic (5 attempts)"""
-        for attempt in range(self.max_retries):
-            try:
-                # Construct search parameters
-                params = {
-                    'keyword': keyword,
-                    'sortBy': 'closeDate',
-                    'sortOrder': 'ASC',
-                    'rows': limit,
-                    'startRecordNum': 0
-                }
+        async with httpx.AsyncClient(
+            headers=self.headers,
+            timeout=self.timeout
+        ) as client:
+            for attempt in range(self.max_retries):
+                try:
+                    # Construct search parameters
+                    params = {
+                        'keyword': keyword,
+                        'sortBy': 'closeDate',
+                        'sortOrder': 'ASC',
+                        'rows': limit,
+                        'startRecordNum': 0
+                    }
 
-                logger.debug(
-                    f"API request attempt {attempt + 1}/{self.max_retries} "
-                    f"for keyword '{keyword}'"
-                )
-                response = self.session.get(
-                    self.BASE_URL,
-                    params=params,
-                    timeout=self.timeout
-                )
+                    logger.debug(
+                        f"API request attempt {attempt + 1}/{self.max_retries} "
+                        f"for keyword '{keyword}'"
+                    )
+                    response = await client.get(
+                        self.BASE_URL,
+                        params=params
+                    )
 
-                # Check for 429 and 5xx errors and retry with backoff
-                if response.status_code == 429 or response.status_code >= 500:
+                    # Check for 429 and 5xx errors and retry with backoff
+                    if response.status_code == 429 or response.status_code >= 500:
+                        if attempt < self.max_retries - 1:
+                            backoff_time = (2 ** attempt)
+                            logger.warning(
+                                f"HTTP {response.status_code} error for "
+                                f"keyword '{keyword}', retrying in {backoff_time}s "
+                                f"(attempt {attempt + 1}/{self.max_retries})"
+                            )
+                            await asyncio.sleep(backoff_time)
+                            continue
+                        else:
+                            logger.error(
+                                f"Max retries reached for keyword '{keyword}' "
+                                f"with status {response.status_code}"
+                            )
+                            response.raise_for_status()
+
+                    response.raise_for_status()
+
+                    data = response.json()
+
+                    if 'oppHits' in data and data['oppHits']:
+                        return self._format_grants(data['oppHits'])
+
+                    return []
+
+                except httpx.TimeoutException as e:
+                    logger.warning(
+                        f"Timeout error for keyword '{keyword}' "
+                        f"(attempt {attempt + 1}): {str(e)}"
+                    )
                     if attempt < self.max_retries - 1:
                         backoff_time = (2 ** attempt)
-                        logger.warning(
-                            f"HTTP {response.status_code} error for "
-                            f"keyword '{keyword}', retrying in {backoff_time}s "
-                            f"(attempt {attempt + 1}/{self.max_retries})"
-                        )
-                        time.sleep(backoff_time)
+                        await asyncio.sleep(backoff_time)
                         continue
-                    else:
-                        logger.error(
-                            f"Max retries reached for keyword '{keyword}' "
-                            f"with status {response.status_code}"
-                        )
-                        response.raise_for_status()
-
-                response.raise_for_status()
-
-                data = response.json()
-
-                if 'oppHits' in data and data['oppHits']:
-                    return self._format_grants(data['oppHits'])
-
-                return []
-
-            except requests.Timeout as e:
-                logger.warning(
-                    f"Timeout error for keyword '{keyword}' "
-                    f"(attempt {attempt + 1}): {str(e)}"
-                )
-                if attempt < self.max_retries - 1:
-                    backoff_time = (2 ** attempt)
-                    time.sleep(backoff_time)
-                    continue
-            except requests.RequestException as e:
-                logger.warning(
-                    f"API request error for keyword '{keyword}' "
-                    f"(attempt {attempt + 1}): {str(e)}"
-                )
-                if attempt < self.max_retries - 1:
-                    if (hasattr(e, 'response') and e.response and
-                            (e.response.status_code == 429 or
-                             e.response.status_code >= 500)):
+                except httpx.HTTPError as e:
+                    logger.warning(
+                        f"API request error for keyword '{keyword}' "
+                        f"(attempt {attempt + 1}): {str(e)}"
+                    )
+                    response = getattr(e, "response", None)
+                    if attempt < self.max_retries - 1 and response:
+                        if response.status_code == 429 or response.status_code >= 500:
+                            backoff_time = (2 ** attempt)
+                            await asyncio.sleep(backoff_time)
+                            continue
+                    if attempt == self.max_retries - 1:
+                        break
+                except Exception as e:
+                    logger.error(
+                        f"Unexpected error for keyword '{keyword}' "
+                        f"(attempt {attempt + 1}): {str(e)}"
+                    )
+                    if attempt < self.max_retries - 1:
                         backoff_time = (2 ** attempt)
-                        time.sleep(backoff_time)
+                        await asyncio.sleep(backoff_time)
                         continue
-                if attempt == self.max_retries - 1:
                     break
-            except Exception as e:
-                logger.error(
-                    f"Unexpected error for keyword '{keyword}' "
-                    f"(attempt {attempt + 1}): {str(e)}"
-                )
-                if attempt < self.max_retries - 1:
-                    backoff_time = (2 ** attempt)
-                    time.sleep(backoff_time)
-                    continue
-                break
 
         logger.warning(
             f"All retry attempts failed for keyword '{keyword}', "

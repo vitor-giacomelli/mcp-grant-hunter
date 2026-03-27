@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from datetime import datetime
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, List, Dict, Any
 
 # --- Input Models ---
 
@@ -43,6 +44,21 @@ class GoogleServicesInput(BaseModel):
         description="OAuth access token for Google Services."
     )
 
+    @field_validator("deadline_date")
+    @classmethod
+    def validate_deadline_date(cls, value: str) -> str:
+        """Accept only supported deadline date formats."""
+        supported_formats = ("%B %d, %Y", "%Y-%m-%d")
+        for fmt in supported_formats:
+            try:
+                datetime.strptime(value, fmt)
+                return value
+            except ValueError:
+                continue
+        raise ValueError(
+            "deadline_date must match '%B %d, %Y' or '%Y-%m-%d'."
+        )
+
 
 # --- Output Models ---
 
@@ -65,6 +81,14 @@ class GrantsQueryOutput(BaseModel):
     results: List[GrantOpportunity]
     total_count: int
     execution_time_ms: float
+    fallback_used: bool = Field(
+        False,
+        description="True when results come from fallback data instead of live upstream."
+    )
+    data_source: str = Field(
+        "grants_gov",
+        description="Source of data for this response (e.g., grants_gov, mock_fallback)."
+    )
 
 
 class PitchGenerateOutput(BaseModel):
@@ -76,3 +100,45 @@ class PitchGenerateOutput(BaseModel):
     model_config = {
         "protected_namespaces": ()
     }
+
+
+class GoogleServicesOutput(BaseModel):
+    """Typed output for /manage_google_services endpoint."""
+    gmail_status: Optional[str] = Field(
+        None,
+        description="Status for Gmail operation (SUCCESS, FAILED, AUTH_ERROR, SKIPPED)."
+    )
+    calendar_status: Optional[str] = Field(
+        None,
+        description="Status for Calendar operation (SUCCESS, FAILED, AUTH_ERROR, SKIPPED)."
+    )
+    draft_link: Optional[str] = Field(
+        None,
+        description="Link to created Gmail draft when available."
+    )
+    event_link: Optional[str] = Field(
+        None,
+        description="Link to created Calendar event when available."
+    )
+    errors: List[str] = Field(
+        default_factory=list,
+        description="Operation-level errors captured during execution."
+    )
+    status: Optional[str] = Field(
+        None,
+        description="Top-level status for critical failures."
+    )
+    error: Optional[str] = Field(
+        None,
+        description="Top-level critical error message when present."
+    )
+
+
+class ErrorEnvelope(BaseModel):
+    """Standardized machine-readable error contract."""
+    code: str = Field(..., description="Stable machine-readable error code.")
+    message: str = Field(..., description="Human-readable summary of the error.")
+    details: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Optional diagnostic details for clients."
+    )

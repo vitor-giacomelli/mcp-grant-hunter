@@ -42,6 +42,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GrantsQueryOutput'
+        '502':
+          description: Upstream/fallback failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
   /generate_pitch:
     post:
       summary: Generate a funding pitch
@@ -59,6 +65,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PitchGenerateOutput'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '502':
+          description: Generation service failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
   /manage_google_services:
     post:
       summary: Manage Google Services (Gmail Drafts, Calendar Events)
@@ -75,8 +93,19 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/GoogleServicesOutput'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '502':
+          description: Google services execution failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 
 components:
   schemas:
@@ -136,6 +165,14 @@ components:
           type: integer
         execution_time_ms:
           type: number
+        fallback_used:
+          type: boolean
+          default: false
+          description: True when response data is from fallback source.
+        data_source:
+          type: string
+          default: grants_gov
+          description: Source used for data resolution.
       required:
         - results
         - total_count
@@ -188,3 +225,48 @@ components:
         - grant_title
         - deadline_date
         - oauth_token
+
+    GoogleServicesOutput:
+      type: object
+      properties:
+        gmail_status:
+          type: string
+          nullable: true
+        calendar_status:
+          type: string
+          nullable: true
+        draft_link:
+          type: string
+          nullable: true
+        event_link:
+          type: string
+          nullable: true
+        errors:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          nullable: true
+        error:
+          type: string
+          nullable: true
+      required:
+        - errors
+
+    ErrorEnvelope:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable error code.
+        message:
+          type: string
+          description: Human-readable error summary.
+        details:
+          type: object
+          additionalProperties: true
+          nullable: true
+      required:
+        - code
+        - message
