@@ -16,6 +16,7 @@ on:
       - 'TODO.md'
       - 'scripts/create_todo_issues.py'
       - 'scripts/close_resolved_issues.py'
+      - 'scripts/validate_todo_issues.py'
       - '.github/workflows/create-todo-issues.yml'
 
 permissions:
@@ -58,6 +59,9 @@ jobs:
           create_label "priority/P0"       "d93f0b" "Critical — must be addressed immediately"
           create_label "priority/P1"       "e4e669" "High priority"
           create_label "priority/P2"       "c2e0c6" "Medium priority"
+
+      - name: Validate TODO/issue sync
+        run: python scripts/validate_todo_issues.py
 
       - name: Close resolved issues
         env:
