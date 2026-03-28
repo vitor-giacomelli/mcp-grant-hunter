@@ -17,23 +17,45 @@ Current runtime characteristics:
 
 ## System Diagram
 
+The diagram below shows the **public MCP server** (this repository) and its relationship to external APIs and the private product layer.
+
 ```mermaid
 graph TD
-    Client[MCP Client] -->|HTTP| Server[FastAPI Server]
-
-    subgraph Grant Hunter MCP
-        Server --> Q[/query_grants]
-        Server --> P[/generate_pitch]
-        Server --> G[/manage_google_services]
-
-        Q --> GrantsGov[Grants.gov API]
-        P --> Gemini[Gemini Models]
-        G --> GoogleWS[Gmail and Calendar APIs]
-
-        Q --> Mock[Mock Grants Fallback]
-        P --> PitchTemplate[Template Pitch Fallback]
+    subgraph Private["Private Product (separate repo)"]
+        UI[User-Facing UI]
+        Orchestrator[Workflow Orchestrator]
     end
+
+    subgraph MCP["Grant Hunter MCP — this public repo"]
+        Server[FastAPI Server]
+        Q[/query_grants]
+        P[/generate_pitch]
+        G[/manage_google_services]
+        Mock[Mock Grants Fallback]
+        PitchTemplate[Template Pitch Fallback]
+
+        Server --> Q
+        Server --> P
+        Server --> G
+        Q --> Mock
+        P --> PitchTemplate
+    end
+
+    Client[External MCP Client] -->|HTTP| Server
+    UI -->|HTTP| Server
+    Orchestrator -->|HTTP| Server
+
+    Q --> GrantsGov[Grants.gov API]
+    P --> Gemini[Gemini Models]
+    G --> GoogleWS[Gmail and Calendar APIs]
 ```
+
+**Boundary notes:**
+
+- Everything inside the *Grant Hunter MCP* box is in this public repository.
+- The *Private Product* box represents a separate private repository not covered here.
+- External MCP clients interact directly with the public MCP server over HTTP.
+- See [CONTRIBUTING.md](CONTRIBUTING.md) for what belongs in each repository.
 
 ## Component Analysis
 
