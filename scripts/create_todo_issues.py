@@ -473,6 +473,230 @@ Grant applications in non-US jurisdictions (e.g., Brazil, France, Spain) are typ
 - UI localization (tracked in the User Interface issue).
 """,
     },
+    # --- Architecture Hardening Bundle (from ARCHITECTURE_REVIEW.md 2026-03-26) ---
+    {
+        "title": "P0: Async network boundary refactor and non-blocking external calls",
+        "labels": ["enhancement", "sub-issue", "area/architecture", "priority/P0"],
+        "body": """## Summary
+Complete the async migration so that no blocking external I/O occurs in FastAPI endpoint hot paths.
+
+## Context
+- Grants.gov path is fully async (httpx.AsyncClient). ✅
+- Google API SDK calls (Gmail, Calendar) are synchronous and currently offloaded via `asyncio.to_thread` at route level. This is a workaround, not a proper async boundary.
+
+## Why
+Blocking operations in the event loop limit concurrency and degrade latency under load. Full async separation improves throughput and meets production-grade concurrency requirements.
+
+## Scope
+- Isolate or replace Google API blocking operations to avoid blocking the event loop.
+- Add timeout budget per external call.
+- Verify no blocking I/O remains in endpoint hot paths.
+
+## Implementation Tasks
+- [ ] Evaluate async-compatible Google API client (e.g., `google-api-python-client` async or `aiohttp` based approach).
+- [ ] Move thread offload (`asyncio.to_thread`) to a dedicated executor pool configuration instead of ad-hoc at route level.
+- [ ] Add per-external-call timeout configuration.
+- [ ] Add integration test confirming no blocking calls in hot path.
+
+## Acceptance Criteria
+- [ ] No synchronous blocking calls remain in the FastAPI event loop for any endpoint.
+- [ ] Concurrency improvement measurable under simulated load.
+
+## Verification
+- Load test with `locust` or `wrk` to confirm improved concurrency.
+- Inspect async trace to confirm no blocking I/O in event loop.
+
+## Risks
+- Google API Python SDK may not have a fully async-native alternative; thread pool approach may be the pragmatic solution.
+
+## Out of Scope
+- Caching layer (tracked separately in Issue #14).
+""",
+    },
+    {
+        "title": "P1: Query grants contract cleanup (focus_area and fallback transparency)",
+        "labels": ["enhancement", "sub-issue", "area/api-contract", "priority/P1"],
+        "body": """## Summary
+Resolve the `focus_area` contract ambiguity and ensure fallback behavior is fully transparent in API responses.
+
+## Context
+- `fallback_used` and `data_source` fields are present in `GrantsQueryOutput`. ✅
+- `focus_area` is accepted in `GrantsQueryInput` but is not used for filtering. ❌
+
+## Why
+Consumers may assume `focus_area` filters results, causing incorrect integrations. The contract must match the behavior.
+
+## Scope
+- Decide: implement real `focus_area` filtering or remove the field from the input schema.
+- Ensure fallback metadata is always present and accurate in responses.
+
+## Implementation Tasks
+- [ ] Decide on `focus_area`: implement filtering against grant categories/titles or remove from schema.
+- [ ] If removing: add deprecation notice and bump API version.
+- [ ] If implementing: add filter logic in `grants_gov_api.py` and add unit tests.
+- [ ] Verify `fallback_used` and `data_source` are always set correctly in all code paths.
+
+## Acceptance Criteria
+- [ ] `focus_area` behavior matches its documented contract (either filtering or explicitly documented as unused).
+- [ ] `fallback_used` and `data_source` are always present and accurate in `/query_grants` responses.
+
+## Verification
+- Send a request with `focus_area` set and verify results match the filter or field is removed.
+- Trigger a fallback path and confirm `fallback_used=true` and `data_source=mock_fallback` are returned.
+
+## Risks
+- Removing `focus_area` is a breaking change for existing clients.
+
+## Out of Scope
+- Semantic search / vector-based filtering (tracked in Issue #20).
+""",
+    },
+    {
+        "title": "P1: Harden OAuth lifecycle handling for Google Services",
+        "labels": ["enhancement", "sub-issue", "area/security", "priority/P1"],
+        "body": """## Summary
+Improve server-side OAuth token lifecycle management for the Google Services integration.
+
+## Context
+- `deadline_date` validation is fully implemented (explicit format enforcement). ✅
+- OAuth tokens are passed raw by the caller per request with no server-side refresh or lifecycle management. ❌
+
+## Why
+Long-running integrations using the MCP will encounter token expiry without a refresh path. Delegating the full OAuth lifecycle to clients creates fragility and operational risk.
+
+## Scope
+- Define and document the server-side token lifecycle strategy.
+- Optionally implement token refresh using refresh token (stored securely).
+- Enforce explicit error on expired/invalid token rather than silent failure.
+
+## Implementation Tasks
+- [ ] Define integration contract: short-lived token per call vs. refresh token in environment.
+- [ ] If refresh token: add `google-auth-oauthlib` to `requirements.txt` and implement `refresh_credentials()` helper.
+- [ ] Return explicit `AUTH_ERROR` response with clear message when token is expired or invalid (already partially handled via HttpError 401 checks).
+- [ ] Add `.env.example` entries for `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`.
+- [ ] Add unit tests for token expiry detection and refresh behavior.
+
+## Acceptance Criteria
+- [ ] Expired or invalid tokens return an explicit, machine-readable error (not a silent partial failure).
+- [ ] Token lifecycle strategy is clearly documented in TECHNICAL.md.
+
+## Verification
+- Test with an expired token and confirm explicit `AUTH_ERROR` response.
+- Inspect logs to confirm no token values are emitted.
+
+## Risks
+- OAuth refresh flow requires stored refresh token; service account flow may be preferable for server-to-server use.
+
+## Out of Scope
+- Multi-tenant OAuth with per-user token storage.
+""",
+    },
+    {
+        "title": "P1: Normalize documentation encoding and remove stale sections",
+        "labels": ["documentation", "sub-issue", "area/docs", "priority/P1"],
+        "body": """## Summary
+Remove BOM (byte order mark) characters from top-level documentation files and ensure all docs are consistently UTF-8 encoded without encoding artifacts.
+
+## Context
+- `ARCHITECTURE_REVIEW.md`, `TODO.md`, and `TECHNICAL.md` contain UTF-8 BOM markers (﻿) at the start of files.
+- These cause display artifacts in some editors and markdown renderers.
+
+## Why
+BOM markers in UTF-8 files reduce readability and can cause parsing issues in automated tooling.
+
+## Scope
+- Strip BOM markers from all affected top-level `.md` files.
+- Verify no stale or duplicate narrative sections remain.
+
+## Implementation Tasks
+- [ ] Identify all `.md` files with BOM markers using `grep` or `file` command.
+- [ ] Re-save affected files as UTF-8 without BOM.
+- [ ] Verify all docs render correctly in GitHub markdown preview.
+
+## Acceptance Criteria
+- [ ] No BOM markers in top-level documentation files.
+- [ ] All docs render cleanly in GitHub.
+
+## Verification
+- Run `file *.md` and confirm all files are `UTF-8 Unicode text` (not `UTF-8 Unicode (with BOM) text`).
+
+## Risks
+- Low risk; purely cosmetic/encoding fix.
+
+## Out of Scope
+- Content rewrites or narrative reorganization.
+""",
+    },
+    {
+        "title": "P2: Observability baseline (structured logs, request IDs, external call metrics)",
+        "labels": ["enhancement", "sub-issue", "area/architecture", "priority/P2"],
+        "body": """## Summary
+Add request correlation IDs, structured log fields, and external call timing/failure telemetry to improve operational visibility.
+
+## Why
+Currently, logs use basic `logging.info/error` with no correlation IDs. When a request fails, there is no way to trace a specific request end-to-end or identify which upstream call caused a latency spike.
+
+## Scope
+- Request correlation ID injected per request and included in all log lines.
+- Structured log fields (JSON or key=value format) for key events.
+- External call timing metrics (Grants.gov response time, Gemini response time).
+
+## Implementation Tasks
+- [ ] Add middleware to inject a `request_id` UUID per incoming request.
+- [ ] Pass `request_id` through to all service calls and log lines.
+- [ ] Add timing measurements for external calls (Grants.gov, Gemini, Google APIs).
+- [ ] Emit structured log entries at key decision points (fallback triggered, retry attempted, auth error).
+- [ ] Document log format in TECHNICAL.md.
+
+## Acceptance Criteria
+- [ ] Every request log line includes a stable `request_id`.
+- [ ] External call duration is logged at DEBUG level.
+- [ ] Fallback events are logged at WARNING level with `request_id` context.
+
+## Verification
+- Send a request and grep logs for the `request_id` across all log lines.
+- Trigger a fallback and confirm structured warning log is emitted.
+
+## Risks
+- Log verbosity at DEBUG level may be high; ensure production log level defaults to INFO.
+
+## Out of Scope
+- Metrics export to Prometheus/OpenTelemetry (can be added as follow-up).
+""",
+    },
+    {
+        "title": "P2: Add TODO-to-issue synchronization guardrails",
+        "labels": ["enhancement", "sub-issue", "area/architecture", "priority/P2"],
+        "body": """## Summary
+Add automated validation to detect drift between `TODO.md` architecture backlog items and the issue automation script (`scripts/create_todo_issues.py`).
+
+## Why
+The TODO and issue automation are manually kept in sync. Any new backlog item added to `TODO.md` without a corresponding entry in the issue script creates silent drift and means issues are never created for those items.
+
+## Scope
+- A validation script or CI step that compares TODO backlog item titles against the `ISSUES` list in `create_todo_issues.py`.
+- Fail with a clear message if a TODO item has no matching issue definition.
+
+## Implementation Tasks
+- [ ] Add `scripts/validate_todo_issues.py` that reads both `TODO.md` and `create_todo_issues.py` and checks for missing mappings.
+- [ ] Add naming convention: TODO items intended to become issues must use a `*(new issue - pending workflow)*` suffix.
+- [ ] Add CI step to `.github/workflows/create-todo-issues.yml` that runs the validation before issue creation.
+
+## Acceptance Criteria
+- [ ] Adding a new `*(new issue - pending workflow)*` item to `TODO.md` without a script entry causes the validation to fail.
+- [ ] Validation passes for all current TODO/issue pairs.
+
+## Verification
+- Add a dummy TODO item without a script entry and confirm validation fails.
+- Remove the dummy item and confirm validation passes.
+
+## Risks
+- Low risk; purely a tooling addition.
+
+## Out of Scope
+- Automatic creation of issues from TODO.md (this is the existing script's responsibility).
+""",
+    },
 ]
 
 

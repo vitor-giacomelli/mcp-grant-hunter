@@ -11,9 +11,12 @@ on:
   push:
     branches:
       - main
+      - 'copilot/**'
     paths:
       - 'TODO.md'
       - 'scripts/create_todo_issues.py'
+      - 'scripts/close_resolved_issues.py'
+      - '.github/workflows/create-todo-issues.yml'
 
 permissions:
   issues: write
@@ -31,6 +34,36 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Create required labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          create_label() {
+            local name="$1" color="$2" desc="$3"
+            gh label create "$name" \
+              --color "$color" \
+              --description "$desc" \
+              --repo vitor-giacomelli/mcp-grant-hunter \
+              --force 2>/dev/null && echo "Label ready: $name" || echo "Label skipped: $name"
+          }
+          create_label "enhancement"       "a2eeef" "New feature or request"
+          create_label "sub-issue"         "7057ff" "Sub-issue of an epic"
+          create_label "suggestion"        "d4c5f9" "Suggested improvement (optional)"
+          create_label "area/testing"      "0052cc" "Testing infrastructure"
+          create_label "area/ci"           "0052cc" "CI/CD pipeline"
+          create_label "area/architecture" "0052cc" "Architecture and design concerns"
+          create_label "area/api-contract" "1d76db" "API contract and schema concerns"
+          create_label "area/security"     "e4e669" "Security-related concerns"
+          create_label "area/docs"         "0075ca" "Documentation improvements"
+          create_label "priority/P0"       "d93f0b" "Critical — must be addressed immediately"
+          create_label "priority/P1"       "e4e669" "High priority"
+          create_label "priority/P2"       "c2e0c6" "Medium priority"
+
+      - name: Close resolved issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/close_resolved_issues.py
+
       - name: Create missing TODO issues
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -41,3 +74,4 @@ jobs:
           else
             python scripts/create_todo_issues.py
           fi
+

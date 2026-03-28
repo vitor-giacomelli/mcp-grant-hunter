@@ -1,76 +1,69 @@
-﻿# Issue Documentation - Grant Hunter MCP
+# Issue Documentation - Grant Hunter MCP
 
-Date: 2026-03-26
+Date: 2026-03-28
 Source of truth: `scripts/create_todo_issues.py`
-Validation command used: `python scripts/create_todo_issues.py --dry-run`
+Last run: `python scripts/create_todo_issues.py` (via GitHub Actions, run #3)
 
 ## Purpose
 
-This document captures the current issue backlog state before any new issue creation action.
+This document captures the current issue backlog state. It was last updated after a full workflow run that created 6 new architecture hardening issues and closed 1 resolved issue.
 
 ## Summary
 
-- Total issue definitions in automation script: **21**
-- Already open (skipped by dry-run): **11**
-- Pending creation (dry-run "Would create"): **10**
+- Total issue definitions in automation script: **18** (12 original + 6 architecture hardening)
+- Open issues in tracker: **25**
+- Issues closed as resolved: **1** (Issue #13)
+- Architecture hardening issues created: **6** (Issues #23–#28)
 
-## Already Open (Skipped in Dry-Run)
+## Open Issues (Current)
 
-1. Add unit tests for core modules (grants_gov_api, pitch_generator, pydantic_models)
-2. Refactor grants_gov_api.py for maintainability and testability
-3. Migrate from requests to httpx for async network layer in grants_gov_api.py
-4. Implement caching for grant search results to reduce API calls
-5. Implement full OAuth2 lifecycle for Google Services authentication
-6. Add Brazil grant sources support (Transferegov, Sebrae, FAPESP)
-7. Build React/Next.js user interface dashboard for the grant pipeline
-8. Set up comprehensive CI/CD pipeline for automated testing and Docker image building
-9. Create Helm charts for Kubernetes deployment
-10. [Suggestion] Add grant matching engine using vector embeddings for semantic similarity
-11. [Suggestion] Add multi-language support for pitch generation (Spanish, Portuguese, French)
+| # | Title | Labels |
+|---|---|---|
+| #1 | Define MCP source-of-truth and sync contract with private repo | area/sync |
+| #2 | Add CI drift check for shared MCP files | area/sync, area/ci |
+| #3 | Add MCP endpoint contract and resiliency tests | area/testing |
+| #4 | Adopt semantic versioning and changelog workflow | area/release |
+| #5 | Clarify public repo scope, architecture, and contribution path | area/docs |
+| #6 | [Suggestion] Add CODEOWNERS for MCP core and release files | area/docs |
+| #7 | [Suggestion] Add lightweight MCP evaluation suite | area/testing |
+| #8 | [EPIC] Public MCP hardening and release governance | epic |
+| #10 | Add unit tests for core modules | area/testing |
+| #11 | Refactor grants_gov_api.py for maintainability and testability | — |
+| #12 | Refactor pitch_generator.py — extract prompt template | — |
+| #14 | Implement caching for grant search results | — |
+| #15 | Implement full OAuth2 lifecycle for Google Services | — |
+| #16 | Add Brazil grant sources support | — |
+| #17 | Build React/Next.js user interface dashboard | — |
+| #18 | Set up comprehensive CI/CD pipeline | area/ci |
+| #19 | Create Helm charts for Kubernetes deployment | — |
+| #20 | [Suggestion] Add grant matching engine (vector embeddings) | suggestion |
+| #21 | [Suggestion] Add multi-language support for pitch generation | suggestion |
+| #23 | P0: Async network boundary refactor | area/architecture, priority/P0 |
+| #24 | P1: Query grants contract cleanup (focus_area) | area/api-contract, priority/P1 |
+| #25 | P1: Harden OAuth lifecycle handling | area/security, priority/P1 |
+| #26 | P1: Normalize documentation encoding | area/docs, priority/P1 |
+| #27 | P2: Observability baseline | area/architecture, priority/P2 |
+| #28 | P2: TODO-to-issue synchronization guardrails | area/architecture, priority/P2 |
 
-## Pending Creation (Would Create)
+## Closed Issues
 
-### Existing backlog item not yet open
+| # | Title | Reason |
+|---|---|---|
+| #13 | Migrate from requests to httpx for async network layer | **Completed** — `httpx.AsyncClient` is in use; `requests` removed from `requirements.txt` |
 
-1. Refactor pitch_generator.py - extract prompt template to a separate constant or file
+## Label Strategy
 
-### Architecture hardening bundle
+All labels are now present in the repository:
 
-2. P0: Async network boundary refactor and non-blocking external calls
-3. P0: Standardize error taxonomy and typed error envelope across endpoints
-4. P1: Query grants contract cleanup (focus_area and fallback transparency)
-5. P1: Add typed response contract for manage_google_services
-6. P1: Harden OAuth lifecycle handling and deadline date validation
-7. P1: Align README and TECHNICAL with implemented behavior
-8. P1: Normalize documentation encoding and remove stale sections
-9. P2: Observability baseline (structured logs, request IDs, external call metrics)
-10. P2: Add TODO-to-issue synchronization guardrails
-
-## Label Strategy in Script
-
-Architecture hardening entries use standardized labels:
-
-- `area/architecture`
-- `area/api-contract`
-- `area/security`
-- `area/docs`
+- `enhancement`, `documentation`, `sub-issue`, `suggestion`, `epic`
+- `area/architecture`, `area/api-contract`, `area/security`, `area/docs`
+- `area/testing`, `area/ci`, `area/sync`, `area/release`
 - `priority/P0`, `priority/P1`, `priority/P2`
-- plus base labels (`enhancement`, `sub-issue`) or (`documentation`, `sub-issue`)
 
 ## Traceability
 
 - Architecture review source: `ARCHITECTURE_REVIEW.md`
 - TODO integration source: `TODO.md` section `Architecture Review Backlog (2026-03-26)`
 - Issue automation source: `scripts/create_todo_issues.py`
-
-## Next Action (When Approved)
-
-Create pending issues via existing automation:
-
-```bash
-python scripts/create_todo_issues.py
-```
-
-Or use GitHub Actions workflow:
-
-- `.github/workflows/create-todo-issues.yml` (run without dry-run)
+- Close automation source: `scripts/close_resolved_issues.py`
+- Workflow: `.github/workflows/create-todo-issues.yml`
