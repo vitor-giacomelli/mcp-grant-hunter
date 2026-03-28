@@ -2,6 +2,25 @@
 
 Grant Hunter MCP is a FastAPI-based Model Context Protocol (MCP) service for grant discovery and pitch drafting.
 
+## Repository Role
+
+This repository contains the **public MCP server layer** of the Grant Hunter product. It exposes HTTP endpoints that any MCP-compatible client can call to search for grants, generate pitches, and interact with Google Workspace.
+
+The private product layer—user-facing UI, workflow orchestration, and end-user authentication—lives in a separate private repository. This public repo exists so that external developers and MCP clients can integrate with the server independently.
+
+For a visual overview of how the public MCP server relates to the broader product, see the [architecture diagram in TECHNICAL.md](TECHNICAL.md#system-diagram).
+
+## Non-Goals
+
+The following are **not** part of this repository:
+
+- User-facing UI or frontend components
+- End-to-end product workflows spanning the private product layer
+- User account management, billing, or tenancy logic
+- Full OAuth2 token lifecycle service
+- Kubernetes/Helm deployment templates
+- Any private product business logic not directly tied to MCP endpoints
+
 ## Verified Capabilities
 
 - `POST /query_grants`
@@ -183,6 +202,10 @@ Run manually via GitHub Actions `workflow_dispatch` or on push to `main` when TO
 - Input validation is enforced through Pydantic models.
 
 ## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contribution guide, including expected PR types, non-goals, and code style notes.
+
+Quick checklist:
 
 1. Review `TODO.md` and `ARCHITECTURE_REVIEW.md`.
 2. Keep behavior and docs in sync.
