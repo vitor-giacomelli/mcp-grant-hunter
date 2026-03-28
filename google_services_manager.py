@@ -4,6 +4,7 @@ import logging
 from typing import Dict, Any
 from datetime import datetime
 from email.mime.text import MIMEText
+from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -40,12 +41,18 @@ class GoogleServicesManager:
         results = {
             "gmail_status": "SKIPPED",
             "calendar_status": "SKIPPED",
-            "errors": []
+            "errors": [],
+            "oauth_status": "ACCESS_TOKEN_ONLY",
+            "token_refreshed": False,
         }
 
         try:
-            # Create credentials from token string
-            creds = Credentials(token=input_data.oauth_token)
+            creds, oauth_meta = self._build_credentials(input_data)
+            results["oauth_status"] = oauth_meta["oauth_status"]
+            results["token_refreshed"] = oauth_meta["token_refreshed"]
+            results["resolved_oauth_token"] = creds.token
+            if oauth_meta.get("oauth_error"):
+                results["errors"].append(oauth_meta["oauth_error"])
 
             # Build services
             gmail_service = build('gmail', 'v1', credentials=creds)
@@ -100,6 +107,41 @@ class GoogleServicesManager:
                 "status": "CRITICAL_FAILURE",
                 "error": str(e)
             }
+
+    def _build_credentials(self, input_data: GoogleServicesInput):
+        """Build credentials and attempt server-side refresh when configured."""
+        creds = Credentials(
+            token=input_data.oauth_token,
+            refresh_token=input_data.refresh_token,
+            token_uri=input_data.token_uri if input_data.refresh_token else None,
+            client_id=input_data.client_id if input_data.refresh_token else None,
+            client_secret=(
+                input_data.client_secret if input_data.refresh_token else None
+            ),
+        )
+
+        oauth_status = "ACCESS_TOKEN_ONLY"
+        token_refreshed = False
+        oauth_error = None
+
+        if input_data.refresh_token:
+            original_token = creds.token
+            try:
+                creds.refresh(Request())
+                oauth_status = "REFRESH_SUCCESS"
+                token_refreshed = creds.token != original_token
+            except Exception as e:
+                oauth_status = "REFRESH_FAILED"
+                oauth_error = (
+                    "OAuth refresh failed; continuing with provided access token."
+                )
+                logger.warning("OAuth refresh attempt failed: %s", str(e))
+
+        return creds, {
+            "oauth_status": oauth_status,
+            "token_refreshed": token_refreshed,
+            "oauth_error": oauth_error,
+        }
 
     def _create_draft(
         self,

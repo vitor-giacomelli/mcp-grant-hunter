@@ -10,10 +10,10 @@ Items marked `(new issue - pending workflow)` are created by:
 ## Issue Creation Status (2026-03-27)
 
 - Attempted issue creation via `python scripts/create_todo_issues.py`.
-- Result: architecture bundle issues are still pending due GitHub token/permission and missing-label blockers in current CLI session.
+- Result: architecture bundle issues are still pending mainly due GitHub token/permission blockers in current CLI session.
 - Confirmed blockers:
   - `GraphQL: Resource not accessible by personal access token (createIssue)`
-  - Missing labels in target repo (`area/architecture`, `area/api-contract`, `area/security`, `priority/P1`, etc.)
+- Missing labels in target repo (`area/architecture`, `area/api-contract`, `area/security`, `priority/P1`, etc.) are now handled by script preflight and skipped safely.
 - Next retry command (without replacing permanent env vars):
   - Temporarily map alternate token for this shell run, then execute `python scripts/create_todo_issues.py`.
 
@@ -23,50 +23,54 @@ Source: [ARCHITECTURE_REVIEW.md](ARCHITECTURE_REVIEW.md)
 
 ### P0
 
-- [ ] **Async network boundary refactor and non-blocking external calls** *(new issue - pending workflow)*
-  - [ ] Replace blocking grants lookup path with async-compatible HTTP execution.
-  - [ ] Isolate/offload blocking Google API operations from hot async request path.
-  - [ ] Add verification that async request path contains no blocking external calls.
+- [x] **Async network boundary refactor and non-blocking external calls** *(new issue - pending workflow)*
+  - [x] Replace blocking grants lookup path with async-compatible HTTP execution.
+  - [x] Isolate/offload blocking Google API operations from hot async request path.
+  - [x] Add verification that async request path contains no blocking external calls.
   - Acceptance criteria: measurable concurrency improvement and no blocking I/O in endpoint hot path.
 
-- [ ] **Standardize error taxonomy and typed error envelope across endpoints** *(new issue - pending workflow)*
-  - [ ] Define one error response schema (`code`, `message`, optional `details`).
-  - [ ] Use explicit error mapping instead of broad catch-all fallback behavior.
-  - [ ] Document error contract in API docs.
+- [x] **Standardize error taxonomy and typed error envelope across endpoints** *(new issue - pending workflow)*
+  - [x] Define one error response schema (`code`, `message`, optional `details`).
+  - [x] Use explicit error mapping instead of broad catch-all fallback behavior.
+  - [x] Document error contract in API docs.
   - Acceptance criteria: all endpoints return consistent machine-readable error responses.
 
 ### P1
 
-- [ ] **Query grants contract cleanup (`focus_area`, fallback transparency)** *(new issue - pending workflow)*
-  - [ ] Decide if `focus_area` is implemented filtering or remove it from input schema.
-  - [ ] Add optional response metadata (`fallback_used`, `data_source`).
-  - [ ] Ensure fallback semantics are explicit to clients.
+- [x] **Query grants contract cleanup (`focus_area`, fallback transparency)** *(new issue - pending workflow)*
+  - [x] Decide if `focus_area` is implemented filtering or remove it from input schema.
+  - [x] Add optional response metadata (`fallback_used`, `data_source`).
+  - [x] Ensure fallback semantics are explicit to clients.
   - Acceptance criteria: schema and behavior are aligned and documented.
 
-- [ ] **Add typed response contract for `/manage_google_services`** *(new issue - pending workflow)*
-  - [ ] Introduce strict response model for success/partial failure/failure outcomes.
-  - [ ] Remove shape-varying ad-hoc response payloads.
+- [x] **Add typed response contract for `/manage_google_services`** *(new issue - pending workflow)*
+  - [x] Introduce strict response model for success/partial failure/failure outcomes.
+  - [x] Remove shape-varying ad-hoc response payloads.
   - Acceptance criteria: endpoint response shape is contract-stable and testable.
 
 - [ ] **Harden OAuth lifecycle handling and deadline date validation** *(new issue - pending workflow)*
-  - [ ] Define token refresh/token lifecycle approach and constraints.
-  - [ ] Reject invalid date formats with explicit validation errors.
+  - [x] Define token refresh/token lifecycle approach and constraints.
+    - Implemented per-request refresh flow using `refresh_token` + client credentials.
+    - Implemented persisted server-side OAuth sessions (`/oauth_sessions`, SQLite-backed store).
+    - Remaining: encryption-at-rest / external secret-manager integration.
+  - [x] Reject invalid date formats with explicit validation errors.
   - Acceptance criteria: no silent fallback-to-today behavior on invalid input.
 
-- [ ] **Align README and TECHNICAL with implemented behavior** *(new issue - pending workflow)*
-  - [ ] Keep "Verified Capabilities" and "Current Limitations" sections current.
-  - [ ] Remove unsupported or outdated implementation claims.
+- [x] **Align README and TECHNICAL with implemented behavior** *(new issue - pending workflow)*
+  - [x] Keep "Verified Capabilities" and "Current Limitations" sections current.
+  - [x] Remove unsupported or outdated implementation claims.
   - Acceptance criteria: docs reflect current code behavior without over-claiming.
 
-- [ ] **Normalize documentation encoding and remove stale sections** *(new issue - pending workflow)*
-  - [ ] Eliminate mojibake and stale trailing content in top-level docs.
+- [x] **Normalize documentation encoding and remove stale sections** *(new issue - pending workflow)*
+  - [x] Eliminate mojibake and stale trailing content in top-level docs.
   - Acceptance criteria: top-level docs are clean, readable, and internally consistent.
 
 ### P2
 
 - [ ] **Observability baseline (structured logs, request IDs, external call metrics)** *(new issue - pending workflow)*
-  - [ ] Add request correlation IDs and structured logging fields.
-  - [ ] Add external dependency timing/failure telemetry.
+  - [x] Add request correlation IDs and structured logging fields.
+  - [x] Add external dependency timing/failure telemetry.
+  - [ ] Add dashboard/query examples for operational usage.
   - Acceptance criteria: per-request traceability and upstream failure visibility.
 
 - [ ] **TODO-to-issue synchronization guardrails** *(new issue - pending workflow)*
@@ -80,13 +84,13 @@ Source: [ARCHITECTURE_REVIEW.md](ARCHITECTURE_REVIEW.md)
 
 ### 1. Testing Infrastructure (Critical)
 
-- [ ] **Create `tests/` directory**: project currently lacks a dedicated test suite.
+- [x] **Create `tests/` directory**: dedicated test suite now exists.
 - [ ] **Unit tests** *(new issue - pending workflow)*:
-  - [ ] `tests/test_grants_api.py`: test `search_grants` with mocked responses.
-  - [ ] `tests/test_pitch_generator.py`: test prompt construction and fallback logic.
-  - [ ] `tests/test_pydantic_models.py`: verify validation rules.
+  - [x] `tests/test_grants_api.py`: test `search_grants` with mocked responses.
+  - [x] `tests/test_pitch_generator.py`: test prompt construction and fallback logic.
+  - [x] `tests/test_pydantic_models.py`: verify validation rules.
 - [ ] **Integration tests** -> [Issue #3: Add MCP endpoint contract and resiliency tests](https://github.com/vitor-giacomelli/mcp-grant-hunter/issues/3):
-  - [ ] `tests/test_main.py`: test FastAPI endpoints using `TestClient`.
+  - [x] `tests/test_main.py`: test FastAPI endpoints using `TestClient`.
 
 ### 2. Code Refactoring
 
@@ -102,7 +106,7 @@ Source: [ARCHITECTURE_REVIEW.md](ARCHITECTURE_REVIEW.md)
 
 ### 1. Architecture and Performance
 
-- [ ] **Async network layer** *(new issue - pending workflow)*: migrate from `requests` to `httpx` in grants path.
+- [x] **Async network layer** *(new issue - pending workflow)*: migrated from `requests` to `httpx` in grants path.
 - [ ] **Caching** *(new issue - pending workflow)*: add in-memory or Redis caching for grant search results.
 
 ### 2. Features

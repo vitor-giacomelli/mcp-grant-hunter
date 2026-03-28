@@ -14,6 +14,8 @@ Current runtime characteristics:
 - Validation: Pydantic models
 - Grants lookup: async `httpx` with retry/backoff
 - Google services: synchronous Google API client libraries
+- Request observability: request-id middleware and structured external-call logs
+- OAuth session persistence: SQLite-backed server-side session store
 
 ## System Diagram
 
@@ -75,9 +77,19 @@ Responsibilities:
 Notes:
 
 - request carries raw OAuth access token
-- token refresh lifecycle is not managed by this service
+- optional per-request server-side refresh is supported when request includes
+  `refresh_token`, `client_id`, and `client_secret`
+- refresh result is surfaced in response as `oauth_status` and `token_refreshed`
 - date parsing now enforces explicit formats (`%B %d, %Y` or `%Y-%m-%d`)
 - response shape is typed via `GoogleServicesOutput`
+
+### 4) `oauth_session_store.py`
+
+Responsibilities:
+
+- persist OAuth credentials server-side in SQLite
+- provide create/get/update/delete operations keyed by `session_id`
+- support access token updates after refresh
 
 ## Data Flow
 
@@ -87,6 +99,7 @@ Notes:
 2. Async Grants.gov call performed.
 3. Data deduplicated/sorted/formatted.
 4. On failure/empty path, mock fallback may be returned with explicit metadata (`fallback_used`, `data_source`).
+5. Optional `focus_area` is applied as a text filter against title/description/category/agency fields.
 
 ### `/generate_pitch`
 
@@ -99,8 +112,16 @@ Notes:
 
 1. Input validated by `GoogleServicesInput`.
 2. Token converted to credentials.
-3. Gmail draft and Calendar event calls attempted.
-4. Aggregated typed status payload returned (`GoogleServicesOutput`).
+3. Optional server-side token refresh attempted when refresh credentials are provided.
+4. Gmail draft and Calendar event calls attempted.
+5. Aggregated typed status payload returned (`GoogleServicesOutput`).
+6. If session-backed execution is used, refreshed access token is persisted back to session store.
+
+### `/oauth_sessions`
+
+1. Input validated by `OAuthSessionCreateInput`.
+2. Credentials persisted in session store.
+3. `session_id` returned for later use in `/manage_google_services`.
 
 ## Verified Capabilities
 
@@ -108,14 +129,16 @@ Notes:
 - Grant search retry/backoff logic exists for Grants.gov path.
 - Graceful fallback is implemented for grant query and pitch generation.
 - Demo mode exists for Google services simulation.
+- Response correlation IDs (`x-request-id`) are included for traceability.
+- Server-side OAuth sessions can be created and deleted via API.
 
 ## Current Limitations
 
 - Google service SDK calls are blocking and currently offloaded at route-level.
-- Query contract drift: `focus_area` exists in schema but is not used in filtering.
+- Query `focus_area` filtering is text-based only and does not provide semantic ranking.
 - Error envelope has been introduced in routes, but full endpoint-level consistency still needs dedicated tests.
-- OAuth lifecycle and token refresh are delegated to clients.
-- No automated test suite or CI workflow yet.
+- Session store currently uses local SQLite; no encryption-at-rest or external KMS integration.
+- CI workflow is still pending.
 
 ## Security Model
 

@@ -100,8 +100,78 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: OAuth session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
         '502':
           description: Google services execution failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /oauth_sessions:
+    post:
+      summary: Create a persisted OAuth session for server-side token lifecycle.
+      operationId: createOAuthSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuthSessionCreateInput'
+      responses:
+        '200':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthSessionCreateOutput'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '502':
+          description: Session persistence failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /oauth_sessions/{session_id}:
+    delete:
+      summary: Delete a persisted OAuth session.
+      operationId: deleteOAuthSession
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthSessionDeleteOutput'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '502':
+          description: Session persistence failure
           content:
             application/json:
               schema:
@@ -220,11 +290,80 @@ components:
           description: Date string for the grant deadline.
         oauth_token:
           type: string
+          nullable: true
           description: OAuth access token for Google Services.
+        oauth_session_id:
+          type: string
+          nullable: true
+          description: Optional server-side OAuth session identifier.
+        refresh_token:
+          type: string
+          nullable: true
+          description: Optional OAuth refresh token for server-side token refresh.
+        client_id:
+          type: string
+          nullable: true
+          description: OAuth client_id used with refresh_token flow.
+        client_secret:
+          type: string
+          nullable: true
+          description: OAuth client_secret used with refresh_token flow.
+        token_uri:
+          type: string
+          default: https://oauth2.googleapis.com/token
+          description: OAuth token endpoint used for refresh operations.
       required:
         - grant_title
         - deadline_date
+
+    OAuthSessionCreateInput:
+      type: object
+      properties:
+        oauth_token:
+          type: string
+        refresh_token:
+          type: string
+          nullable: true
+        client_id:
+          type: string
+          nullable: true
+        client_secret:
+          type: string
+          nullable: true
+        token_uri:
+          type: string
+          default: https://oauth2.googleapis.com/token
+        label:
+          type: string
+          maxLength: 100
+          nullable: true
+      required:
         - oauth_token
+
+    OAuthSessionCreateOutput:
+      type: object
+      properties:
+        session_id:
+          type: string
+        created_at:
+          type: string
+        label:
+          type: string
+          nullable: true
+      required:
+        - session_id
+        - created_at
+
+    OAuthSessionDeleteOutput:
+      type: object
+      properties:
+        session_id:
+          type: string
+        deleted:
+          type: boolean
+      required:
+        - session_id
+        - deleted
 
     GoogleServicesOutput:
       type: object
@@ -245,6 +384,12 @@ components:
           type: array
           items:
             type: string
+        oauth_status:
+          type: string
+          nullable: true
+        token_refreshed:
+          type: boolean
+          nullable: true
         status:
           type: string
           nullable: true

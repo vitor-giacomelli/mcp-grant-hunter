@@ -14,6 +14,7 @@ Requires:
 import json
 import subprocess
 import sys
+from typing import List, Set
 
 REPO = "vitor-giacomelli/mcp-grant-hunter"
 
@@ -473,10 +474,300 @@ Grant applications in non-US jurisdictions (e.g., Brazil, France, Spain) are typ
 - UI localization (tracked in the User Interface issue).
 """,
     },
+    {
+        "title": "P0: Async network boundary refactor and non-blocking external calls",
+        "labels": [
+            "enhancement",
+            "sub-issue",
+            "area/architecture",
+            "priority/P0",
+        ],
+        "body": """## Summary
+Refactor endpoint execution paths to avoid blocking external I/O in hot async request handlers.
+
+## Why
+FastAPI routes are async, but key external calls still use blocking clients. This can reduce throughput and increase tail latency under load.
+
+## Scope
+- Grants path: migrate network call path to async-compatible HTTP.
+- Google Services path: isolate/offload blocking operations from async endpoint hot path.
+- Add instrumentation to verify no blocking external calls remain in hot path.
+
+## Implementation Tasks
+- [ ] Audit external calls used by each endpoint.
+- [ ] Refactor grants path to async-compatible client usage.
+- [ ] Wrap or offload blocking Google client calls safely.
+- [ ] Add async behavior verification tests.
+
+## Acceptance Criteria
+- [ ] Endpoint hot path has no blocking external network calls.
+- [ ] Concurrency/latency behavior improves under load.
+- [ ] Existing functional behavior remains intact.
+
+## Verification
+- Run async/concurrency tests and compare before/after results.
+- Confirm no regression in endpoint outputs.
+""",
+    },
+    {
+        "title": "P0: Standardize error taxonomy and typed error envelope across endpoints",
+        "labels": [
+            "enhancement",
+            "sub-issue",
+            "area/api-contract",
+            "priority/P0",
+        ],
+        "body": """## Summary
+Define and adopt a consistent error response envelope across all endpoints.
+
+## Why
+Current error behavior varies by endpoint and can mask root causes. A strict error contract improves client reliability and debugging.
+
+## Scope
+- Add a machine-readable error schema (`code`, `message`, optional `details`).
+- Use explicit mappings for known failure classes.
+- Update endpoint docs and examples.
+
+## Implementation Tasks
+- [ ] Define shared error model in Pydantic.
+- [ ] Apply schema consistently in endpoints.
+- [ ] Replace broad catch-all responses where appropriate.
+- [ ] Add contract tests for error responses.
+
+## Acceptance Criteria
+- [ ] Every endpoint returns consistent error shape.
+- [ ] Known failures return stable machine-readable codes.
+- [ ] Error contract is documented.
+
+## Verification
+- Run endpoint contract tests for common failure scenarios.
+""",
+    },
+    {
+        "title": "P1: Query grants contract cleanup (focus_area and fallback transparency)",
+        "labels": [
+            "enhancement",
+            "sub-issue",
+            "area/api-contract",
+            "priority/P1",
+        ],
+        "body": """## Summary
+Align `/query_grants` schema and runtime behavior, including `focus_area` and fallback transparency.
+
+## Why
+`focus_area` is accepted in schema but not currently enforced in filtering. Fallback behavior is not explicit enough for downstream clients.
+
+## Scope
+- Decide whether `focus_area` is implemented filtering or removed from schema.
+- Add optional response metadata (`fallback_used`, `data_source`).
+- Ensure fallback semantics are explicit and documented.
+
+## Implementation Tasks
+- [ ] Implement or remove `focus_area` filter behavior.
+- [ ] Add response metadata fields and docs.
+- [ ] Add contract tests for both normal and fallback responses.
+
+## Acceptance Criteria
+- [ ] Schema and behavior are fully aligned.
+- [ ] Clients can reliably detect fallback/source conditions.
+
+## Verification
+- Run contract tests for both API success and fallback paths.
+""",
+    },
+    {
+        "title": "P1: Add typed response contract for manage_google_services",
+        "labels": [
+            "enhancement",
+            "sub-issue",
+            "area/api-contract",
+            "priority/P1",
+        ],
+        "body": """## Summary
+Introduce a strict response schema for `/manage_google_services`.
+
+## Why
+Current response payload is dynamic and shape-varying, which complicates client integration and contract testing.
+
+## Scope
+- Define Pydantic response models for success, partial failure, and failure states.
+- Update endpoint declaration and examples.
+
+## Implementation Tasks
+- [ ] Add response model(s) to `pydantic_models.py`.
+- [ ] Update endpoint to return the strict schema.
+- [ ] Add tests validating response shape across scenarios.
+
+## Acceptance Criteria
+- [ ] Endpoint response shape is contract-stable and validated.
+- [ ] Client integration no longer depends on ad-hoc keys.
+
+## Verification
+- Run contract tests covering success and error branches.
+""",
+    },
+    {
+        "title": "P1: Harden OAuth lifecycle handling and deadline date validation",
+        "labels": [
+            "enhancement",
+            "sub-issue",
+            "area/security",
+            "priority/P1",
+        ],
+        "body": """## Summary
+Harden Google auth/token handling and make deadline date validation explicit and safe.
+
+## Why
+Raw token pass-through and silent date fallback can produce operational risk and incorrect scheduling behavior.
+
+## Scope
+- Define token lifecycle strategy and constraints.
+- Reject invalid date inputs with explicit validation errors.
+- Avoid silent fallback-to-now behavior for malformed dates.
+
+## Implementation Tasks
+- [ ] Define and document OAuth lifecycle approach.
+- [ ] Add strict date parsing validation.
+- [ ] Add tests for invalid/malformed date inputs and auth failure modes.
+
+## Acceptance Criteria
+- [ ] Invalid date inputs return explicit validation errors.
+- [ ] OAuth handling behavior is documented and test-covered.
+
+## Verification
+- Run regression tests for auth and date handling paths.
+""",
+    },
+    {
+        "title": "P1: Align README and TECHNICAL with implemented behavior",
+        "labels": [
+            "documentation",
+            "sub-issue",
+            "area/docs",
+            "priority/P1",
+        ],
+        "body": """## Summary
+Keep top-level docs aligned with actual implementation status and behavior.
+
+## Why
+Overstated or stale claims create onboarding and integration risk.
+
+## Scope
+- Maintain clear \"Verified Capabilities\" and \"Current Limitations\" sections.
+- Ensure architecture docs mirror real runtime behavior.
+
+## Implementation Tasks
+- [ ] Audit README and TECHNICAL against current code behavior.
+- [ ] Correct inaccurate claims and examples.
+- [ ] Add links to architecture review and TODO traceability.
+
+## Acceptance Criteria
+- [ ] Docs reflect current code behavior with no known over-claims.
+- [ ] Contributors can distinguish implemented vs planned features.
+
+## Verification
+- Perform doc-to-code walkthrough and peer review.
+""",
+    },
+    {
+        "title": "P1: Normalize documentation encoding and remove stale sections",
+        "labels": [
+            "documentation",
+            "sub-issue",
+            "area/docs",
+            "priority/P1",
+        ],
+        "body": """## Summary
+Normalize top-level documentation encoding/content and remove stale trailing sections.
+
+## Why
+Encoding artifacts and stale sections reduce clarity and trust in repository documentation.
+
+## Scope
+- Clean mojibake/encoding artifacts.
+- Remove stale or duplicated sections.
+- Keep docs concise and source-of-truth oriented.
+
+## Implementation Tasks
+- [ ] Audit top-level markdown files for encoding artifacts.
+- [ ] Rewrite affected sections in clean UTF-8/ASCII-safe content.
+- [ ] Validate links and section coherence.
+
+## Acceptance Criteria
+- [ ] No visible encoding artifacts in top-level docs.
+- [ ] No stale trailing or contradictory sections remain.
+
+## Verification
+- Manual review in GitHub preview and local editor.
+""",
+    },
+    {
+        "title": "P2: Observability baseline (structured logs, request IDs, external call metrics)",
+        "labels": [
+            "enhancement",
+            "sub-issue",
+            "area/architecture",
+            "priority/P2",
+        ],
+        "body": """## Summary
+Add a baseline observability layer for request traceability and dependency health.
+
+## Why
+Without structured telemetry, diagnosing upstream failures and latency regressions is slower and less reliable.
+
+## Scope
+- Structured logs with request correlation IDs.
+- External call timing/failure metrics.
+- Basic operational dashboards or query examples.
+
+## Implementation Tasks
+- [ ] Add request IDs to logs and propagate through service calls.
+- [ ] Track external dependency latency/error counters.
+- [ ] Document observability fields and usage.
+
+## Acceptance Criteria
+- [ ] Requests are traceable end-to-end with correlation IDs.
+- [ ] Upstream dependency behavior is measurable over time.
+
+## Verification
+- Run smoke tests and confirm logs/metrics populate expected fields.
+""",
+    },
+    {
+        "title": "P2: Add TODO-to-issue synchronization guardrails",
+        "labels": [
+            "enhancement",
+            "sub-issue",
+            "area/architecture",
+            "priority/P2",
+        ],
+        "body": """## Summary
+Add validation guardrails to reduce drift between TODO backlog and issue automation script.
+
+## Why
+TODO and issue definitions are manually synchronized today; drift can cause missing or duplicate tracking.
+
+## Scope
+- Define naming/traceability convention for TODO entries and issue titles.
+- Add a validation script/check for TODO-to-script consistency.
+
+## Implementation Tasks
+- [ ] Define traceability markers for architecture backlog items.
+- [ ] Implement a check script that flags missing mappings.
+- [ ] Add usage documentation and CI integration (when CI workflow exists).
+
+## Acceptance Criteria
+- [ ] Drift between TODO and issue definitions is detectable.
+- [ ] Contributors have a documented process for keeping backlog in sync.
+
+## Verification
+- Run guardrail check on modified TODO/script combinations.
+""",
+    },
 ]
 
 
-def issue_exists(title: str, dry_run: bool = False) -> bool:
+def issue_exists(title: str) -> bool:
     """Check if an issue with the given title already exists."""
     try:
         result = subprocess.run(
@@ -498,20 +789,59 @@ def issue_exists(title: str, dry_run: bool = False) -> bool:
                 return True
         return False
     except subprocess.CalledProcessError as e:
-        print(f"  WARNING: Could not check for existing issue: {e.stderr}", file=sys.stderr)
+        print(
+            f"  WARNING: Could not check for existing issue: {e.stderr}",
+            file=sys.stderr,
+        )
         return False
 
 
-def create_issue(issue: dict, dry_run: bool = False) -> None:
+def get_existing_labels() -> Set[str]:
+    """Fetch existing labels in the target repository."""
+    try:
+        result = subprocess.run(
+            [
+                "gh", "label", "list",
+                "--repo", REPO,
+                "--json", "name",
+                "--limit", "200",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        labels = json.loads(result.stdout)
+        return {label["name"] for label in labels}
+    except subprocess.CalledProcessError as e:
+        print(
+            f"  WARNING: Could not fetch repository labels: {e.stderr}",
+            file=sys.stderr
+        )
+        return set()
+
+
+def create_issue(
+    issue: dict,
+    existing_labels: Set[str],
+    dry_run: bool = False
+) -> bool:
     """Create a GitHub issue with the given title, body, and labels."""
     title = issue["title"]
     body = issue["body"]
     labels = issue.get("labels", [])
+    valid_labels: List[str] = [l for l in labels if l in existing_labels]
+    missing_labels: List[str] = [l for l in labels if l not in existing_labels]
 
     if dry_run:
         print(f"  [DRY RUN] Would create: {title}")
-        print(f"  [DRY RUN] Labels: {', '.join(labels)}")
-        return
+        if valid_labels:
+            print(f"  [DRY RUN] Labels: {', '.join(valid_labels)}")
+        if missing_labels:
+            print(
+                f"  [DRY RUN] Missing labels (will be skipped): "
+                f"{', '.join(missing_labels)}"
+            )
+        return True
 
     cmd = [
         "gh", "issue", "create",
@@ -519,14 +849,20 @@ def create_issue(issue: dict, dry_run: bool = False) -> None:
         "--title", title,
         "--body", body,
     ]
-    for label in labels:
+    for label in valid_labels:
         cmd.extend(["--label", label])
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         print(f"  Created: {result.stdout.strip()}")
+        if missing_labels:
+            print(
+                f"  NOTE: Missing labels skipped: {', '.join(missing_labels)}"
+            )
+        return True
     except subprocess.CalledProcessError as e:
         print(f"  ERROR creating issue '{title}': {e.stderr}", file=sys.stderr)
+        return False
 
 
 def main() -> None:
@@ -537,22 +873,35 @@ def main() -> None:
 
     print(f"Processing {len(ISSUES)} TODO-tracked issues...\n")
 
+    existing_labels = get_existing_labels()
+    if existing_labels:
+        print(f"Discovered {len(existing_labels)} existing labels in repo.\n")
+    else:
+        print("Proceeding without label preflight data.\n")
+
     created = 0
     skipped = 0
+    failed = 0
 
     for issue in ISSUES:
         title = issue["title"]
         print(f"Checking: {title}")
 
-        if issue_exists(title, dry_run):
+        if issue_exists(title):
             print(f"  SKIP — issue already exists.\n")
             skipped += 1
         else:
-            create_issue(issue, dry_run)
-            created += 1
+            ok = create_issue(issue, existing_labels, dry_run)
+            if ok:
+                created += 1
+            else:
+                failed += 1
             print()
 
-    print(f"\nDone. Created: {created}, Skipped (already exist): {skipped}")
+    print(
+        f"\nDone. Created: {created}, Skipped (already exist): {skipped}, "
+        f"Failed: {failed}"
+    )
 
 
 if __name__ == "__main__":

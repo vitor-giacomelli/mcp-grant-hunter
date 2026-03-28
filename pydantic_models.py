@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List, Dict, Any
 
 # --- Input Models ---
@@ -39,9 +39,33 @@ class GoogleServicesInput(BaseModel):
         ...,
         description="Date string for the grant deadline."
     )
-    oauth_token: str = Field(
-        ...,
-        description="OAuth access token for Google Services."
+    oauth_token: Optional[str] = Field(
+        None,
+        description=(
+            "OAuth access token for Google Services. Optional when "
+            "oauth_session_id is provided."
+        )
+    )
+    oauth_session_id: Optional[str] = Field(
+        None,
+        max_length=64,
+        description="Optional server-side OAuth session identifier."
+    )
+    refresh_token: Optional[str] = Field(
+        None,
+        description="Optional OAuth refresh token for server-side token refresh."
+    )
+    client_id: Optional[str] = Field(
+        None,
+        description="OAuth client_id used with refresh_token flow."
+    )
+    client_secret: Optional[str] = Field(
+        None,
+        description="OAuth client_secret used with refresh_token flow."
+    )
+    token_uri: str = Field(
+        "https://oauth2.googleapis.com/token",
+        description="OAuth token endpoint used for refresh operations."
     )
 
     @field_validator("deadline_date")
@@ -58,6 +82,129 @@ class GoogleServicesInput(BaseModel):
         raise ValueError(
             "deadline_date must match '%B %d, %Y' or '%Y-%m-%d'."
         )
+
+    @field_validator("oauth_token")
+    @classmethod
+    def validate_oauth_token(cls, value: Optional[str]) -> Optional[str]:
+        """Reject obviously invalid token payloads early."""
+        if value is None:
+            return value
+        token = value.strip()
+        if not token:
+            raise ValueError("oauth_token cannot be empty.")
+        if any(ch.isspace() for ch in token):
+            raise ValueError("oauth_token cannot contain whitespace.")
+        return token
+
+    @field_validator("oauth_session_id")
+    @classmethod
+    def validate_oauth_session_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("oauth_session_id cannot be empty.")
+        if any(ch.isspace() for ch in normalized):
+            raise ValueError("oauth_session_id cannot contain whitespace.")
+        return normalized
+
+    @field_validator("refresh_token", "client_id", "client_secret", "token_uri")
+    @classmethod
+    def validate_optional_auth_fields(cls, value: Optional[str]) -> Optional[str]:
+        """Normalize optional auth fields and reject whitespace-only values."""
+        if value is None:
+            return value
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("OAuth field cannot be empty when provided.")
+        if any(ch.isspace() for ch in normalized):
+            raise ValueError("OAuth field cannot contain whitespace.")
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_refresh_flow_dependencies(self):
+        """Require client credentials when refresh token is provided."""
+        if not self.oauth_token and not self.oauth_session_id:
+            raise ValueError(
+                "Either oauth_token or oauth_session_id must be provided."
+            )
+        if self.refresh_token and (not self.client_id or not self.client_secret):
+            raise ValueError(
+                "client_id and client_secret are required when refresh_token is provided."
+            )
+        return self
+
+
+class OAuthSessionCreateInput(BaseModel):
+    """Input for creating a persisted server-side OAuth session."""
+    oauth_token: str = Field(
+        ...,
+        description="OAuth access token to persist server-side."
+    )
+    refresh_token: Optional[str] = Field(
+        None,
+        description="Optional OAuth refresh token."
+    )
+    client_id: Optional[str] = Field(
+        None,
+        description="OAuth client_id used with refresh_token flow."
+    )
+    client_secret: Optional[str] = Field(
+        None,
+        description="OAuth client_secret used with refresh_token flow."
+    )
+    token_uri: str = Field(
+        "https://oauth2.googleapis.com/token",
+        description="OAuth token endpoint used for refresh operations."
+    )
+    label: Optional[str] = Field(
+        None,
+        max_length=100,
+        description="Optional human-readable label for this session."
+    )
+
+    @field_validator("oauth_token")
+    @classmethod
+    def validate_oauth_token(cls, value: str) -> str:
+        token = value.strip()
+        if not token:
+            raise ValueError("oauth_token cannot be empty.")
+        if any(ch.isspace() for ch in token):
+            raise ValueError("oauth_token cannot contain whitespace.")
+        return token
+
+    @field_validator("refresh_token", "client_id", "client_secret", "token_uri")
+    @classmethod
+    def validate_optional_auth_fields(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("OAuth field cannot be empty when provided.")
+        if any(ch.isspace() for ch in normalized):
+            raise ValueError("OAuth field cannot contain whitespace.")
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_refresh_flow_dependencies(self):
+        if self.refresh_token and (not self.client_id or not self.client_secret):
+            raise ValueError(
+                "client_id and client_secret are required when refresh_token is provided."
+            )
+        return self
+
+
+class OAuthSessionCreateOutput(BaseModel):
+    """Output for session creation endpoint."""
+    session_id: str
+    created_at: str
+    label: Optional[str] = None
+
+
+class OAuthSessionDeleteOutput(BaseModel):
+    """Output for session deletion endpoint."""
+    session_id: str
+    deleted: bool
 
 
 # --- Output Models ---
@@ -123,6 +270,14 @@ class GoogleServicesOutput(BaseModel):
     errors: List[str] = Field(
         default_factory=list,
         description="Operation-level errors captured during execution."
+    )
+    oauth_status: Optional[str] = Field(
+        None,
+        description="OAuth lifecycle status (ACCESS_TOKEN_ONLY, REFRESH_SUCCESS, REFRESH_FAILED)."
+    )
+    token_refreshed: Optional[bool] = Field(
+        None,
+        description="True when access token was refreshed server-side."
     )
     status: Optional[str] = Field(
         None,

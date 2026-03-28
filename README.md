@@ -7,6 +7,7 @@ Grant Hunter MCP is a FastAPI-based Model Context Protocol (MCP) service for gra
 - `POST /query_grants`
   - Searches Grants.gov by keyword.
   - Uses async `httpx` call path with retry/backoff.
+  - Applies optional `focus_area` filtering over returned opportunities.
   - Deduplicates by opportunity number.
   - Sorts by close date.
   - Falls back to mock grants if upstream lookup fails, with response metadata (`fallback_used`, `data_source`).
@@ -16,9 +17,18 @@ Grant Hunter MCP is a FastAPI-based Model Context Protocol (MCP) service for gra
 - `POST /manage_google_services`
   - Creates a Gmail draft and a Calendar event from request inputs.
   - Returns a typed response contract (`GoogleServicesOutput`).
+  - Supports optional server-side OAuth access token refresh when `refresh_token`, `client_id`, and `client_secret` are provided.
+  - Supports `oauth_session_id` to use persisted server-side OAuth credentials.
+- `POST /oauth_sessions`
+  - Persists OAuth credentials server-side and returns a `session_id`.
+- `DELETE /oauth_sessions/{session_id}`
+  - Deletes a persisted OAuth session.
   - Supports `DEMO_MODE=TRUE` to simulate success.
 - `GET /health`
   - Basic health endpoint.
+- Request observability
+  - Adds `x-request-id` correlation header to every response.
+  - Emits structured request completion logs and external Grants.gov call timing logs.
 
 ## Current Limitations
 
@@ -26,9 +36,12 @@ Grant Hunter MCP is a FastAPI-based Model Context Protocol (MCP) service for gra
   - Grants lookup is async.
   - Google API SDK calls are sync and currently executed via route-level thread offload.
 - Contract drift:
-  - `focus_area` is accepted by `/query_grants` input but not used in filtering.
+  - `focus_area` is now applied as a simple substring filter; advanced semantic filtering is not implemented yet.
 - OAuth lifecycle:
-  - Raw OAuth token is passed by client per request; refresh/token exchange lifecycle is not managed server-side.
+  - Access-token-only mode is still supported.
+  - Server-side refresh is now supported per request when refresh credentials are provided.
+  - Persisted session storage is SQLite-backed and intended for backend service use.
+  - Encryption-at-rest and external secret-manager integration are not implemented yet.
 - Date safety:
   - Deadline dates are now validated; accepted formats are `%B %d, %Y` or `%Y-%m-%d`.
 - Delivery posture:
@@ -102,6 +115,7 @@ Response includes:
 
 - `fallback_used`: `true` when fallback data is used
 - `data_source`: `grants_gov` or `mock_fallback`
+- If `focus_area` is provided, results are filtered by matching text in grant title/description/category/agency.
 
 ### `POST /generate_pitch`
 
@@ -123,7 +137,21 @@ Request:
 {
   "grant_title": "Clean Energy Innovation Grant",
   "deadline_date": "December 15, 2025",
-  "oauth_token": "oauth_access_token"
+  "oauth_token": "oauth_access_token",
+  "refresh_token": "optional_refresh_token",
+  "client_id": "optional_client_id",
+  "client_secret": "optional_client_secret",
+  "token_uri": "https://oauth2.googleapis.com/token"
+}
+```
+
+Or session-based request:
+
+```json
+{
+  "grant_title": "Clean Energy Innovation Grant",
+  "deadline_date": "December 15, 2025",
+  "oauth_session_id": "session_id_from_oauth_sessions"
 }
 ```
 

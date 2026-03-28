@@ -116,6 +116,7 @@ class GrantsGovAPI:
             timeout=self.timeout
         ) as client:
             for attempt in range(self.max_retries):
+                attempt_start = time.perf_counter()
                 try:
                     # Construct search parameters
                     params = {
@@ -133,6 +134,17 @@ class GrantsGovAPI:
                     response = await client.get(
                         self.BASE_URL,
                         params=params
+                    )
+                    attempt_duration_ms = (
+                        time.perf_counter() - attempt_start
+                    ) * 1000
+                    logger.info(
+                        "external_call service=grants_gov "
+                        "keyword=%s attempt=%s status=%s duration_ms=%.2f",
+                        keyword,
+                        attempt + 1,
+                        response.status_code,
+                        attempt_duration_ms,
                     )
 
                     # Check for 429 and 5xx errors and retry with backoff
@@ -163,6 +175,16 @@ class GrantsGovAPI:
                     return []
 
                 except httpx.TimeoutException as e:
+                    attempt_duration_ms = (
+                        time.perf_counter() - attempt_start
+                    ) * 1000
+                    logger.warning(
+                        "external_call_timeout service=grants_gov "
+                        "keyword=%s attempt=%s duration_ms=%.2f",
+                        keyword,
+                        attempt + 1,
+                        attempt_duration_ms,
+                    )
                     logger.warning(
                         f"Timeout error for keyword '{keyword}' "
                         f"(attempt {attempt + 1}): {str(e)}"
@@ -172,6 +194,17 @@ class GrantsGovAPI:
                         await asyncio.sleep(backoff_time)
                         continue
                 except httpx.HTTPError as e:
+                    attempt_duration_ms = (
+                        time.perf_counter() - attempt_start
+                    ) * 1000
+                    logger.warning(
+                        "external_call_http_error service=grants_gov "
+                        "keyword=%s attempt=%s duration_ms=%.2f error=%s",
+                        keyword,
+                        attempt + 1,
+                        attempt_duration_ms,
+                        str(e),
+                    )
                     logger.warning(
                         f"API request error for keyword '{keyword}' "
                         f"(attempt {attempt + 1}): {str(e)}"
@@ -185,6 +218,17 @@ class GrantsGovAPI:
                     if attempt == self.max_retries - 1:
                         break
                 except Exception as e:
+                    attempt_duration_ms = (
+                        time.perf_counter() - attempt_start
+                    ) * 1000
+                    logger.error(
+                        "external_call_unexpected_error service=grants_gov "
+                        "keyword=%s attempt=%s duration_ms=%.2f error=%s",
+                        keyword,
+                        attempt + 1,
+                        attempt_duration_ms,
+                        str(e),
+                    )
                     logger.error(
                         f"Unexpected error for keyword '{keyword}' "
                         f"(attempt {attempt + 1}): {str(e)}"
