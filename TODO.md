@@ -24,42 +24,39 @@ Source: [ARCHITECTURE_REVIEW.md](ARCHITECTURE_REVIEW.md)
 ### P0
 
 - [ ] **Async network boundary refactor and non-blocking external calls** *(new issue - pending workflow)*
-  - [ ] Replace blocking grants lookup path with async-compatible HTTP execution.
-  - [ ] Isolate/offload blocking Google API operations from hot async request path.
+  - [x] Replace blocking grants lookup path with async-compatible HTTP execution. *(done: httpx.AsyncClient)*
+  - [ ] Isolate/offload blocking Google API operations from hot async request path. *(partial: asyncio.to_thread wraps route-level call)*
   - [ ] Add verification that async request path contains no blocking external calls.
   - Acceptance criteria: measurable concurrency improvement and no blocking I/O in endpoint hot path.
 
-- [ ] **Standardize error taxonomy and typed error envelope across endpoints** *(new issue - pending workflow)*
-  - [ ] Define one error response schema (`code`, `message`, optional `details`).
-  - [ ] Use explicit error mapping instead of broad catch-all fallback behavior.
-  - [ ] Document error contract in API docs.
-  - Acceptance criteria: all endpoints return consistent machine-readable error responses.
+- [x] **Standardize error taxonomy and typed error envelope across endpoints** *(done: ErrorEnvelope model + error_response() helper in main.py)*
+  - [x] Define one error response schema (`code`, `message`, optional `details`).
+  - [x] Use explicit error mapping instead of broad catch-all fallback behavior.
+  - [x] Document error contract in API docs.
 
 ### P1
 
 - [ ] **Query grants contract cleanup (`focus_area`, fallback transparency)** *(new issue - pending workflow)*
-  - [ ] Decide if `focus_area` is implemented filtering or remove it from input schema.
-  - [ ] Add optional response metadata (`fallback_used`, `data_source`).
-  - [ ] Ensure fallback semantics are explicit to clients.
+  - [ ] Decide if `focus_area` is implemented filtering or remove it from input schema. *(still unresolved)*
+  - [x] Add optional response metadata (`fallback_used`, `data_source`). *(done in GrantsQueryOutput)*
+  - [x] Ensure fallback semantics are explicit to clients. *(done)*
   - Acceptance criteria: schema and behavior are aligned and documented.
 
-- [ ] **Add typed response contract for `/manage_google_services`** *(new issue - pending workflow)*
-  - [ ] Introduce strict response model for success/partial failure/failure outcomes.
-  - [ ] Remove shape-varying ad-hoc response payloads.
-  - Acceptance criteria: endpoint response shape is contract-stable and testable.
+- [x] **Add typed response contract for `/manage_google_services`** *(done: GoogleServicesOutput Pydantic model)*
+  - [x] Introduce strict response model for success/partial failure/failure outcomes.
+  - [x] Remove shape-varying ad-hoc response payloads.
 
 - [ ] **Harden OAuth lifecycle handling and deadline date validation** *(new issue - pending workflow)*
-  - [ ] Define token refresh/token lifecycle approach and constraints.
-  - [ ] Reject invalid date formats with explicit validation errors.
+  - [ ] Define token refresh/token lifecycle approach and constraints. *(still unresolved)*
+  - [x] Reject invalid date formats with explicit validation errors. *(done: field_validator in GoogleServicesInput)*
   - Acceptance criteria: no silent fallback-to-today behavior on invalid input.
 
-- [ ] **Align README and TECHNICAL with implemented behavior** *(new issue - pending workflow)*
-  - [ ] Keep "Verified Capabilities" and "Current Limitations" sections current.
-  - [ ] Remove unsupported or outdated implementation claims.
-  - Acceptance criteria: docs reflect current code behavior without over-claiming.
+- [x] **Align README and TECHNICAL with implemented behavior** *(done: both docs updated)*
+  - [x] Keep "Verified Capabilities" and "Current Limitations" sections current.
+  - [x] Remove unsupported or outdated implementation claims.
 
 - [ ] **Normalize documentation encoding and remove stale sections** *(new issue - pending workflow)*
-  - [ ] Eliminate mojibake and stale trailing content in top-level docs.
+  - [ ] Eliminate BOM markers and stale trailing content in top-level docs.
   - Acceptance criteria: top-level docs are clean, readable, and internally consistent.
 
 ### P2
@@ -102,7 +99,7 @@ Source: [ARCHITECTURE_REVIEW.md](ARCHITECTURE_REVIEW.md)
 
 ### 1. Architecture and Performance
 
-- [ ] **Async network layer** *(new issue - pending workflow)*: migrate from `requests` to `httpx` in grants path.
+- [x] **Async network layer**: migrated from `requests` to `httpx.AsyncClient` in grants path. *(done — Issue #13)*
 - [ ] **Caching** *(new issue - pending workflow)*: add in-memory or Redis caching for grant search results.
 
 ### 2. Features
