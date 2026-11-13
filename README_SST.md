@@ -1,12 +1,5 @@
 # StartupFundingAgent (Grant Hunter MCP) — Single Source of Truth
 
-## 0. Context Bridge
-
-- **Vault Path:** `C:\obsidian\Logs`
-- **Documentation Home:** [00_Home](file:///c:/obsidian/Logs/00_Home) | [Schema](file:///c:/obsidian/Logs/00_Home/Bimodal_Vault_Schema_Dictionary.md)
-- **Vault Link:** `[[04_Projects/Project_MCP_Grant_Hunter]]` *(create if missing)*
-- **Research Branch:** Validates "Production-Grade MCP" and "Resilient API Retry" patterns. Demonstrates autonomous funding workflows.
-
 ---
 
 ## A. Project Overview
